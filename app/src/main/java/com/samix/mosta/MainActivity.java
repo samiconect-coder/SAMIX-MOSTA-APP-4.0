@@ -3,536 +3,485 @@ package com.samix.mosta;
 
 import android.Manifest;
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.os.Bundle;
-import android.content.ClipData;
-import android.content.ClipboardManager;
 import android.content.pm.PackageManager;
-import android.graphics.Color;
-import android.graphics.Typeface;
-import android.graphics.drawable.GradientDrawable;
 import android.media.MediaPlayer;
 import android.media.MediaRecorder;
 import android.media.ToneGenerator;
 import android.media.AudioManager;
+import android.graphics.Color;
+import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
 import android.view.Gravity;
 import android.view.View;
-import android.widget.Button;
-import android.widget.EditText;
-import android.widget.LinearLayout;
-import android.widget.ScrollView;
-import android.widget.SeekBar;
-import android.widget.TextView;
-import android.widget.Toast;
+import android.view.ViewGroup;
+import android.widget.*;
 
 import java.io.File;
-import java.util.Locale;
+import java.util.HashMap;
+import java.util.Map;
 
 public class MainActivity extends Activity {
 
-    private LinearLayout root, content;
+    private final int GREEN = Color.rgb(25, 75, 57);
+    private final int GOLD = Color.rgb(225, 190, 90);
+    private final int DARK = Color.rgb(5, 16, 14);
+    private final int WHITE = Color.WHITE;
 
-    private MediaPlayer music;
-    private MediaPlayer player;
+    private LinearLayout mainLayout;
+    private MediaPlayer musicPlayer;
     private MediaRecorder recorder;
     private ToneGenerator toneGenerator;
 
-    private String audioPath;
-
-    private boolean musicOn = true;
+    private boolean musicEnabled = true;
     private boolean radioOn = false;
-    private boolean recording = false;
-    private boolean permissionWaiting = false;
+    private boolean isRecording = false;
 
-    private int musicVolume = 55;
+    private File recordingFile;
+    private String morseResult = "";
 
-    private final int GOLD = Color.rgb(225, 190, 90);
-    private final int GREEN = Color.rgb(19, 65, 49);
-    private final int DARK = Color.rgb(5, 20, 16);
-    private final int WHITE = Color.WHITE;
+    private static final int MIC_PERMISSION = 100;
 
-    private final String alphabet =
-            "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-
-    private final String[] morse = {
-            ".-", "-...", "-.-.", "-..", ".", "..-.",
-            "--.", "....", "..", ".---", "-.-", ".-..",
-            "--", "-.", "---", ".--.", "--.-", ".-.",
-            "...", "-", "..-", "...-", ".--", "-..-",
-            "-.--", "--..",
-            "-----", ".----", "..---", "...--", "....-",
-            ".....", "-....", "--...", "---..", "----."
-    };
+    private final Map<Character, String> morse =
+            new HashMap<>();
 
     @Override
-    protected void onCreate(Bundle state) {
-        super.onCreate(state);
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
 
         getWindow().setStatusBarColor(DARK);
         getWindow().setNavigationBarColor(DARK);
 
-        startBackgroundMusic();
+        initializeMorse();
+        initializeAudio();
         showHome();
     }
 
-    private GradientDrawable panel(int color) {
+    private void initializeMorse() {
+        String[] letters = {
+                ".-", "-...", "-.-.", "-..", ".",
+                "..-.", "--.", "....", "..", ".---",
+                "-.-", ".-..", "--", "-.", "---",
+                ".--.", "--.-", ".-.", "...", "-",
+                "..-", "...-", ".--", "-..-", "-.--",
+                "--.."
+        };
+
+        for (int i = 0; i < 26; i++) {
+            morse.put((char) ('A' + i), letters[i]);
+        }
+
+        String[] numbers = {
+                "-----", ".----", "..---", "...--",
+                "....-", ".....", "-....", "--...",
+                "---..", "----."
+        };
+
+        for (int i = 0; i < 10; i++) {
+            morse.put((char) ('0' + i), numbers[i]);
+        }
+    }
+
+    private void initializeAudio() {
+        toneGenerator = new ToneGenerator(
+                AudioManager.STREAM_MUSIC, 70
+        );
+
+        try {
+            musicPlayer = MediaPlayer.create(
+                    this, R.raw.background_music
+            );
+
+            if (musicPlayer != null) {
+                musicPlayer.setLooping(true);
+                musicPlayer.setVolume(0.35f, 0.35f);
+
+                if (musicEnabled) {
+                    musicPlayer.start();
+                }
+            }
+        } catch (Exception e) {
+            musicPlayer = null;
+        }
+    }
+
+    private GradientDrawable roundedBackground(
+            int color, int borderColor
+    ) {
         GradientDrawable drawable = new GradientDrawable();
         drawable.setColor(color);
-        drawable.setCornerRadius(25);
-        drawable.setStroke(2, GOLD);
+        drawable.setCornerRadius(24);
+
+        if (borderColor != Color.TRANSPARENT) {
+            drawable.setStroke(2, borderColor);
+        }
+
         return drawable;
     }
 
-    private TextView makeText(String value, int size) {
+    private TextView makeText(
+            String value, int size, int color
+    ) {
         TextView text = new TextView(this);
         text.setText(value);
         text.setTextSize(size);
-        text.setTextColor(WHITE);
+        text.setTextColor(color);
         text.setGravity(Gravity.CENTER);
-        text.setPadding(14, 14, 14, 14);
+        text.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        text.setPadding(12, 12, 12, 12);
         return text;
     }
 
-    private TextView makeCard(String value, int size) {
-        TextView text = makeText(value, size);
-        text.setBackground(panel(Color.rgb(7, 29, 22)));
-
-        LinearLayout.LayoutParams params =
-                new LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.MATCH_PARENT,
-                        LinearLayout.LayoutParams.WRAP_CONTENT);
-
-        params.setMargins(4, 7, 4, 7);
-        text.setLayoutParams(params);
-
-        return text;
-    }
-
-    private Button makeButton(String value, Runnable action) {
+    private Button makeButton(String value) {
         Button button = new Button(this);
         button.setText(value);
         button.setTextColor(WHITE);
         button.setTextSize(16);
         button.setAllCaps(false);
-        button.setTypeface(null, Typeface.BOLD);
-        button.setBackground(panel(GREEN));
-        button.setElevation(4);
-
-        button.setOnClickListener(v -> {
-            if (action != null) action.run();
-        });
+        button.setBackground(
+                roundedBackground(GREEN, GOLD)
+        );
 
         LinearLayout.LayoutParams params =
                 new LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.MATCH_PARENT,
-                        LinearLayout.LayoutParams.WRAP_CONTENT);
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                );
 
-        params.setMargins(5, 7, 5, 7);
+        params.setMargins(8, 7, 8, 7);
         button.setLayoutParams(params);
 
         return button;
     }
 
-    private void setup(String pageTitle) {
+    private void prepareScreen(String title) {
         ScrollView scroll = new ScrollView(this);
-        scroll.setFillViewport(true);
 
-        root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(16, 18, 16, 24);
+        mainLayout = new LinearLayout(this);
+        mainLayout.setOrientation(LinearLayout.VERTICAL);
+        mainLayout.setGravity(Gravity.CENTER_HORIZONTAL);
+        mainLayout.setPadding(16, 20, 16, 25);
 
         try {
-            root.setBackgroundResource(R.drawable.background_samix);
+            mainLayout.setBackgroundResource(
+                    R.drawable.background_samix
+            );
         } catch (Exception e) {
-            root.setBackgroundColor(DARK);
+            mainLayout.setBackgroundColor(DARK);
         }
 
-        scroll.addView(root);
+        scroll.addView(mainLayout);
+
         setContentView(scroll);
 
-        TextView header = makeText(
-                "SAMIX MOSTA\n" + pageTitle, 23);
+        TextView heading = makeText(
+                title, 25, GOLD
+        );
 
-        header.setTypeface(null, Typeface.BOLD);
-        header.setBackground(
-                panel(Color.rgb(5, 25, 19)));
+        mainLayout.addView(heading);
 
-        root.addView(header);
+        TextView subtitle = makeText(
+                "SAMIX MOSTA • VERSION 4.0",
+                12, WHITE
+        );
 
-        TextView identity = makeText(
-                "عزيز 29  •  سامي 27  •  دبشونة", 13);
+        mainLayout.addView(subtitle);
 
-        root.addView(identity);
+        View line = new View(this);
+        line.setBackgroundColor(GOLD);
 
-        content = new LinearLayout(this);
-        content.setOrientation(LinearLayout.VERTICAL);
-        root.addView(content);
+        LinearLayout.LayoutParams lineParams =
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT, 2
+                );
 
-        TextView footer = makeText(
-                "SAMIX MOSTA  •  VERSION 4.0", 11);
-
-        footer.setTextColor(GOLD);
-        root.addView(footer);
+        lineParams.setMargins(15, 12, 15, 18);
+        mainLayout.addView(line, lineParams);
     }
 
-    // الموسيقى الخلفية
+    private void addText(String value, int size) {
+        mainLayout.addView(
+                makeText(value, size, WHITE)
+        );
+    }
 
-    private void startBackgroundMusic() {
-        if (!musicOn || isFinishing()) return;
+    private void addButton(
+            String value, Runnable action
+    ) {
+        Button button = makeButton(value);
 
-        try {
-            if (music == null) {
-                music = MediaPlayer.create(
-                        this, R.raw.background_music);
+        button.setOnClickListener(v -> {
+            if (action != null) {
+                action.run();
             }
+        });
 
-            if (music != null) {
-                music.setLooping(true);
-                setMusicVolume();
-
-                if (!music.isPlaying()) {
-                    music.start();
-                }
-            }
-        } catch (Exception e) {
-            releaseMusic();
-        }
+        mainLayout.addView(button);
     }
-
-    private void setMusicVolume() {
-        if (music != null) {
-            try {
-                float volume = musicVolume / 100f;
-                music.setVolume(volume, volume);
-            } catch (Exception ignored) {
-            }
-        }
-    }
-
-    private void pauseMusic() {
-        try {
-            if (music != null && music.isPlaying()) {
-                music.pause();
-            }
-        } catch (Exception ignored) {
-        }
-    }
-
-    private void resumeMusic() {
-        if (musicOn && !recording) {
-            startBackgroundMusic();
-        }
-    }
-
-    private void releaseMusic() {
-        try {
-            if (music != null) {
-                if (music.isPlaying()) music.stop();
-                music.release();
-                music = null;
-            }
-        } catch (Exception ignored) {
-            music = null;
-        }
-    }
-
-    // الصفحة الرئيسية
 
     private void showHome() {
-        setup("المركز الرئيسي");
+        prepareScreen("SAMIX MOSTA");
 
-        content.addView(
-                makeCard("مرحباً بك في SAMIX MOSTA", 22));
+        addText("مرحبا بك في تطبيق ساميكس", 19);
+        addText("عزيز 29 • سامي 27 • دبشونة", 15);
 
-        content.addView(makeCard(
-                "منصة تعليمية لمحاكاة شفرة مورس والاتصالات اللاسلكية.",
-                15));
-
-        content.addView(makeButton(
-                "📡 محاكي اللاسلكي", this::showRadio));
-
-        content.addView(makeButton(
-                "🔤 مترجم شفرة مورس", this::showTranslator));
-
-        content.addView(makeButton(
-                "📚 أكاديمية مورس", this::showLessons));
-
-        content.addView(makeButton(
-                "🧠 الاختبار التفاعلي", this::showQuiz));
-
-        content.addView(makeButton(
-                "🎵 إعدادات الصوت", this::showSettings));
-
-        content.addView(makeButton(
-                "ℹ️ حول التطبيق", this::showAbout));
+        addButton("📻 محاكي اللاسلكي", this::showRadio);
+        addButton("⌁ مترجم مورس", this::showMorse);
+        addButton("🎓 أكاديمية مورس", this::showAcademy);
+        addButton("🧠 اختبار المعرفة", this::showQuiz);
+        addButton("⚙️ إعدادات التطبيق", this::showSettings);
+        addButton("ℹ️ حول التطبيق", this::showAbout);
     }
 
-    // تشفير مورس
+    // ---------------- MORSE ----------------
 
-    private String encode(String input) {
+    private void showMorse() {
+        prepareScreen("مترجم مورس");
+
+        addText("اكتب النص باللغة الإنجليزية أو الأرقام", 15);
+
+        EditText input = new EditText(this);
+        input.setTextColor(WHITE);
+        input.setHintTextColor(Color.LTGRAY);
+        input.setHint("اكتب هنا...");
+        input.setTextSize(18);
+        input.setPadding(15, 15, 15, 15);
+        input.setBackground(
+                roundedBackground(DARK, GOLD)
+        );
+
+        mainLayout.addView(input);
+
+        TextView output = makeText(
+                "النتيجة ستظهر هنا",
+                18, GOLD
+        );
+
+        mainLayout.addView(output);
+
+        addButton("تحويل إلى مورس", () -> {
+            String text = input.getText().toString()
+                    .toUpperCase().trim();
+
+            output.setText(encodeMorse(text));
+        });
+
+        addButton("تحويل من مورس إلى نص", () -> {
+            String text = input.getText().toString().trim();
+            output.setText(decodeMorse(text));
+        });
+
+        addButton("مسح النص", () -> {
+            input.setText("");
+            output.setText("النتيجة ستظهر هنا");
+        });
+
+        addButton("رجوع", this::showHome);
+    }
+
+    private String encodeMorse(String text) {
         StringBuilder result = new StringBuilder();
-        String upper = input.toUpperCase(Locale.ROOT);
 
-        for (int i = 0; i < upper.length(); i++) {
-            char character = upper.charAt(i);
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
 
-            if (character == ' ') {
-                result.append("/ ");
-                continue;
-            }
-
-            int index = alphabet.indexOf(character);
-
-            if (index >= 0) {
-                result.append(morse[index]).append(" ");
+            if (c == ' ') {
+                result.append(" / ");
+            } else if (morse.containsKey(c)) {
+                result.append(morse.get(c)).append(" ");
+            } else {
+                result.append("? ");
             }
         }
 
         return result.toString().trim();
     }
 
-    // فك شفرة مورس
-
-    private String decode(String input) {
-        if (input == null || input.trim().isEmpty()) {
-            return "";
-        }
-
+    private String decodeMorse(String text) {
         StringBuilder result = new StringBuilder();
-        String[] words = input.trim().split("\\s*/\\s*");
 
-        for (int w = 0; w < words.length; w++) {
-            String word = words[w].trim();
+        String[] words = text.trim().split("\\s*/\\s*");
 
-            if (!word.isEmpty()) {
-                String[] letters = word.split("\\s+");
+        for (String word : words) {
+            String[] symbols = word.trim().split("\\s+");
 
-                for (String code : letters) {
-                    boolean found = false;
+            for (String symbol : symbols) {
+                boolean found = false;
 
-                    for (int i = 0; i < morse.length; i++) {
-                        if (morse[i].equals(code)) {
-                            result.append(alphabet.charAt(i));
-                            found = true;
-                            break;
-                        }
+                for (Map.Entry<Character, String> entry
+                        : morse.entrySet()) {
+
+                    if (entry.getValue().equals(symbol)) {
+                        result.append(entry.getKey());
+                        found = true;
+                        break;
                     }
+                }
 
-                    if (!found) {
-                        result.append("?");
-                    }
+                if (!found && !symbol.isEmpty()) {
+                    result.append("?");
                 }
             }
 
-            if (w < words.length - 1) {
-                result.append(" ");
-            }
+            result.append(" ");
         }
 
-        return result.toString();
+        return result.toString().trim();
     }
 
-    private void showTranslator() {
-        setup("مترجم مورس");
+    // ---------------- ACADEMY ----------------
 
-        EditText input = new EditText(this);
-        input.setTextColor(WHITE);
-        input.setHintTextColor(Color.LTGRAY);
-        input.setHint("اكتب النص أو شفرة مورس هنا");
-        input.setMinLines(3);
-        input.setGravity(Gravity.TOP);
-        input.setPadding(15, 15, 15, 15);
-        input.setBackground(panel(DARK));
+    private void showAcademy() {
+        prepareScreen("أكاديمية مورس");
 
-        content.addView(input);
+        addText("الدرس الأول: ما هو مورس؟", 20);
+        addText(
+                "نظام اتصال يستخدم النقاط والشرطات "
+                        + "لتمثيل الحروف والأرقام.",
+                16
+        );
 
-        TextView output = makeCard(
-                "ستظهر النتيجة هنا", 18);
+        addText("النقطة: .", 20);
+        addText("الشرطة: -", 20);
 
-        content.addView(output);
+        addText("الدرس الثاني: أمثلة", 20);
+        addText("A = .-", 18);
+        addText("B = -...", 18);
+        addText("C = -.-.", 18);
+        addText("S = ...", 18);
+        addText("O = ---", 18);
 
-        content.addView(makeButton(
-                "تحويل النص إلى شفرة مورس",
-                () -> {
-                    String result = encode(
-                            input.getText().toString());
+        addText("الدرس الثالث: الأرقام", 20);
+        addText("1 = .----", 18);
+        addText("2 = ..---", 18);
+        addText("3 = ...--", 18);
+        addText("0 = -----", 18);
 
-                    output.setText(result.isEmpty()
-                            ? "لم يتم إدخال نص صالح"
-                            : result);
-                }));
+        addText(
+                "ملاحظة: تفصل المسافة بين الحروف، "
+                        + "وتستخدم / للفصل بين الكلمات.",
+                15
+        );
 
-        content.addView(makeButton(
-                "تحويل شفرة مورس إلى نص",
-                () -> {
-                    String result = decode(
-                            input.getText().toString());
-
-                    output.setText(result.isEmpty()
-                            ? "أدخل شفرة مورس أولاً"
-                            : result);
-                }));
-
-        content.addView(makeButton(
-                "نسخ النتيجة",
-                () -> {
-                    ClipboardManager clipboard =
-                            (ClipboardManager) getSystemService(
-                                    CLIPBOARD_SERVICE);
-
-                    if (clipboard != null) {
-                        clipboard.setPrimaryClip(
-                                ClipData.newPlainText(
-                                        "Morse",
-                                        output.getText()));
-
-                        Toast.makeText(
-                                this,
-                                "تم نسخ النتيجة",
-                                Toast.LENGTH_SHORT).show();
-                    }
-                }));
-
-        content.addView(makeButton(
-                "رجوع", this::showHome));
+        addButton("فتح مترجم مورس", this::showMorse);
+        addButton("رجوع", this::showHome);
     }
 
-    // أكاديمية مورس
-
-    private void showLessons() {
-        setup("أكاديمية مورس");
-
-        content.addView(makeCard(
-                "الدرس 01 — الأساسيات\nالنقطة قصيرة والشرطة أطول.",
-                17));
-
-        content.addView(makeCard(
-                "الدرس 02 — الحروف\nA = .-    B = -...    C = -.-.",
-                17));
-
-        content.addView(makeCard(
-                "الدرس 03 — الأرقام\n0 = -----    1 = .----",
-                17));
-
-        content.addView(makeCard(
-                "الدرس 04 — تكوين الكلمات\nنفصل بين الحروف بمسافة، وبين الكلمات بالرمز /.",
-                17));
-
-        content.addView(makeButton(
-                "رجوع", this::showHome));
-    }
-
-    // الاختبار التفاعلي
+    // ---------------- QUIZ ----------------
 
     private void showQuiz() {
-        setup("الاختبار التفاعلي");
+        prepareScreen("اختبار مورس");
 
-        content.addView(makeCard(
-                "السؤال الأول\nما هو رمز الحرف A؟", 20));
+        addText("ما هو الرمز الصحيح للحرف S؟", 20);
 
-        content.addView(makeButton(
-                ".-", () -> answer(true)));
+        addButton("A) .-", () ->
+                showQuizResult(false)
+        );
 
-        content.addView(makeButton(
-                "-...", () -> answer(false)));
+        addButton("B) ...", () ->
+                showQuizResult(true)
+        );
 
-        content.addView(makeButton(
-                "--.", () -> answer(false)));
+        addButton("C) ---", () ->
+                showQuizResult(false)
+        );
 
-        content.addView(makeButton(
-                "رجوع", this::showHome));
+        addButton("رجوع", this::showHome);
     }
 
-    private void answer(boolean correct) {
-        new AlertDialog.Builder(this)
-                .setTitle(correct
-                        ? "إجابة صحيحة"
-                        : "حاول مرة أخرى")
-                .setMessage(correct
-                        ? "أحسنت! رمز الحرف A هو .-"
-                        : "الإجابة الصحيحة هي .-")
-                .setPositiveButton("موافق", null)
-                .show();
+    private void showQuizResult(boolean correct) {
+        prepareScreen("نتيجة الاختبار");
+
+        if (correct) {
+            addText("إجابة صحيحة! أحسنت.", 22);
+        } else {
+            addText("إجابة غير صحيحة. حاول مجددا.", 20);
+        }
+
+        addButton("إعادة الاختبار", this::showQuiz);
+        addButton("الرئيسية", this::showHome);
     }
 
-    // محاكي اللاسلكي
+    // ---------------- RADIO SIMULATOR ----------------
 
     private void showRadio() {
-        setup("محاكي اللاسلكي");
+        prepareScreen("محاكي اللاسلكي");
 
-        TextView status = makeCard(
-                radioOn
-                        ? "🟢 الجهاز يعمل"
-                        : "🔴 الجهاز متوقف",
-                20);
+        addText("محاكي تعليمي محلي", 17);
+        addText(
+                "هذا المحاكي لا يتصل بأجهزة أو ترددات حقيقية.",
+                14
+        );
 
-        content.addView(status);
+        TextView status = makeText(
+                radioOn ? "الجهاز: يعمل" : "الجهاز: متوقف",
+                20, GOLD
+        );
 
-        content.addView(makeButton(
-                "تشغيل / إيقاف الجهاز",
+        mainLayout.addView(status);
+
+        addButton(
+                radioOn ? "إيقاف الجهاز" : "تشغيل الجهاز",
                 () -> {
                     radioOn = !radioOn;
 
-                    status.setText(radioOn
-                            ? "🟢 الجهاز يعمل"
-                            : "🔴 الجهاز متوقف");
-                }));
+                    if (radioOn) {
+                        playBeep();
+                    }
 
-        content.addView(makeButton(
-                "🎙 بدء التسجيل",
-                this::startRecording));
+                    showRadio();
+                }
+        );
 
-        content.addView(makeButton(
-                "⏹ إنهاء التسجيل",
-                this::stopRecording));
+        addButton("تسجيل صوتي", this::startRecording);
+        addButton("إيقاف التسجيل", this::stopRecording);
+        addButton("إعادة سماع التسجيل", this::playRecording);
 
-        content.addView(makeButton(
-                "▶ إعادة الاستماع",
-                this::playRecording));
+        addButton("صوت بداية الإرسال", () -> {
+            if (radioOn) {
+                playBeep();
+            } else {
+                showMessage("شغّل الجهاز أولا");
+            }
+        });
 
-        content.addView(makeButton(
-                "نغمة بداية الاتصال",
-                () -> playBeep(ToneGenerator.TONE_PROP_BEEP)));
+        addButton("صوت نهاية الإرسال", () -> {
+            if (radioOn) {
+                playEndBeep();
+            } else {
+                showMessage("شغّل الجهاز أولا");
+            }
+        });
 
-        content.addView(makeButton(
-                "نغمة نهاية الاتصال",
-                () -> playBeep(ToneGenerator.TONE_PROP_ACK)));
+        addButton("مؤثر تشويش صوتي", () -> {
+            if (radioOn && toneGenerator != null) {
+                toneGenerator.startTone(
+                        ToneGenerator.TONE_SUP_ERROR, 400
+                );
+            } else {
+                showMessage("شغّل الجهاز أولا");
+            }
+        });
 
-        content.addView(makeCard(
-                "محاكي تعليمي محلي. لا يتصل بأجهزة أو ترددات حقيقية.",
-                14));
-
-        content.addView(makeButton(
-                "رجوع", this::showHome));
+        addButton("رجوع", this::showHome);
     }
 
     private void startRecording() {
         if (!radioOn) {
-            Toast.makeText(
-                    this,
-                    "شغّل الجهاز أولاً",
-                    Toast.LENGTH_SHORT).show();
+            showMessage("شغّل الجهاز أولا");
             return;
         }
 
-        if (recording) {
-            Toast.makeText(
-                    this,
-                    "التسجيل يعمل بالفعل",
-                    Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO)
-                != PackageManager.PERMISSION_GRANTED) {
-
-            permissionWaiting = true;
+        if (checkSelfPermission(
+                Manifest.permission.RECORD_AUDIO
+        ) != PackageManager.PERMISSION_GRANTED) {
 
             requestPermissions(
                     new String[]{
                             Manifest.permission.RECORD_AUDIO
                     },
-                    100);
+                    MIC_PERMISSION
+            );
 
             return;
         }
@@ -542,186 +491,274 @@ public class MainActivity extends Activity {
 
     private void beginRecording() {
         try {
-            pauseMusic();
-            releaseRecorder();
+            if (isRecording) {
+                showMessage("التسجيل يعمل بالفعل");
+                return;
+            }
 
-            File file = new File(
-                    getCacheDir(),
-                    "radio_record.m4a");
-
-            audioPath = file.getAbsolutePath();
+            recordingFile = new File(
+                    getCacheDir(), "samix_recording.m4a"
+            );
 
             recorder = new MediaRecorder();
 
             recorder.setAudioSource(
-                    MediaRecorder.AudioSource.MIC);
+                    MediaRecorder.AudioSource.MIC
+            );
 
             recorder.setOutputFormat(
-                    MediaRecorder.OutputFormat.MPEG_4);
+                    MediaRecorder.OutputFormat.MPEG_4
+            );
 
             recorder.setAudioEncoder(
-                    MediaRecorder.AudioEncoder.AAC);
+                    MediaRecorder.AudioEncoder.AAC
+            );
 
-            recorder.setOutputFile(audioPath);
+            recorder.setOutputFile(
+                    recordingFile.getAbsolutePath()
+            );
+
             recorder.prepare();
             recorder.start();
 
-            recording = true;
+            isRecording = true;
+            playBeep();
 
-            Toast.makeText(
-                    this,
-                    "بدأ التسجيل",
-                    Toast.LENGTH_SHORT).show();
+            showMessage("بدأ التسجيل الصوتي");
 
         } catch (Exception e) {
-            recording = false;
+            isRecording = false;
             releaseRecorder();
-            resumeMusic();
-
-            Toast.makeText(
-                    this,
-                    "تعذر بدء التسجيل",
-                    Toast.LENGTH_SHORT).show();
+            showMessage("تعذر بدء التسجيل");
         }
     }
 
     private void stopRecording() {
-        if (!recording || recorder == null) {
-            Toast.makeText(
-                    this,
-                    "لا يوجد تسجيل يعمل حالياً",
-                    Toast.LENGTH_SHORT).show();
+        if (!isRecording || recorder == null) {
+            showMessage("لا يوجد تسجيل نشط");
             return;
         }
 
         try {
             recorder.stop();
-
-            Toast.makeText(
-                    this,
-                    "انتهى التسجيل",
-                    Toast.LENGTH_SHORT).show();
-
+            showMessage("تم حفظ التسجيل محليا");
         } catch (Exception e) {
-            Toast.makeText(
-                    this,
-                    "التسجيل قصير جداً أو لم يكتمل",
-                    Toast.LENGTH_SHORT).show();
-
-        } finally {
-            recording = false;
-            releaseRecorder();
-            resumeMusic();
-        }
-    }
-
-    private void releaseRecorder() {
-        try {
-            if (recorder != null) {
-                recorder.reset();
-                recorder.release();
-            }
-        } catch (Exception ignored) {
+            showMessage("تعذر حفظ التسجيل");
         }
 
-        recorder = null;
+        isRecording = false;
+        releaseRecorder();
+        playEndBeep();
     }
 
     private void playRecording() {
-        if (recording) {
-            Toast.makeText(
-                    this,
-                    "أنه التسجيل أولاً",
-                    Toast.LENGTH_SHORT).show();
+        if (isRecording) {
+            showMessage("أوقف التسجيل أولا");
             return;
         }
 
-        if (audioPath == null ||
-                !new File(audioPath).exists()) {
-
-            Toast.makeText(
-                    this,
-                    "لا يوجد تسجيل بعد",
-                    Toast.LENGTH_SHORT).show();
+        if (recordingFile == null ||
+                !recordingFile.exists()) {
+            showMessage("لا يوجد تسجيل محفوظ");
             return;
         }
 
         try {
-            pauseMusic();
-            releasePlayer();
+            MediaPlayer player = new MediaPlayer();
 
-            player = new MediaPlayer();
-            player.setDataSource(audioPath);
+            player.setDataSource(
+                    recordingFile.getAbsolutePath()
+            );
 
-            player.setOnCompletionListener(mp -> {
-                releasePlayer();
-                resumeMusic();
-            });
-
-            player.setOnErrorListener((mp, what, extra) -> {
-                releasePlayer();
-                resumeMusic();
-                Toast.makeText(
-                        this,
-                        "تعذر تشغيل التسجيل",
-                        Toast.LENGTH_SHORT).show();
-                return true;
-            });
+            player.setOnCompletionListener(p -> p.release());
 
             player.prepare();
             player.start();
 
         } catch (Exception e) {
-            releasePlayer();
-            resumeMusic();
-
-            Toast.makeText(
-                    this,
-                    "تعذر تشغيل التسجيل",
-                    Toast.LENGTH_SHORT).show();
+            showMessage("تعذر تشغيل التسجيل");
         }
     }
 
-    private void releasePlayer() {
-        try {
-            if (player != null) {
-                player.release();
-            }
-        } catch (Exception ignored) {
-        }
-
-        player = null;
-    }
-
-    private void playBeep(int tone) {
-        try {
-            if (toneGenerator == null) {
-                toneGenerator = new ToneGenerator(
-                        AudioManager.STREAM_MUSIC,
-                        75);
+    private void releaseRecorder() {
+        if (recorder != null) {
+            try {
+                recorder.reset();
+                recorder.release();
+            } catch (Exception ignored) {
             }
 
-            toneGenerator.startTone(tone, 250);
-
-        } catch (Exception e) {
-            Toast.makeText(
-                    this,
-                    "تعذر تشغيل النغمة",
-                    Toast.LENGTH_SHORT).show();
+            recorder = null;
         }
     }
+
+    private void playBeep() {
+        if (toneGenerator != null) {
+            toneGenerator.startTone(
+                    ToneGenerator.TONE_PROP_BEEP, 180
+            );
+        }
+    }
+
+    private void playEndBeep() {
+        if (toneGenerator != null) {
+            toneGenerator.startTone(
+                    ToneGenerator.TONE_PROP_ACK, 250
+            );
+        }
+    }
+
+    // ---------------- SETTINGS ----------------
+
+    private void showSettings() {
+        prepareScreen("إعدادات التطبيق");
+
+        addText("الموسيقى الخلفية", 20);
+
+        addButton(
+                musicEnabled
+                        ? "إيقاف الموسيقى"
+                        : "تشغيل الموسيقى",
+                () -> {
+                    musicEnabled = !musicEnabled;
+
+                    if (musicPlayer != null) {
+                        if (musicEnabled) {
+                            musicPlayer.start();
+                        } else {
+                            musicPlayer.pause();
+                        }
+                    }
+
+                    showSettings();
+                }
+        );
+
+        addText("مستوى صوت الموسيقى", 16);
+
+        SeekBar volume = new SeekBar(this);
+        volume.setMax(100);
+        volume.setProgress(35);
+
+        mainLayout.addView(volume);
+
+        volume.setOnSeekBarChangeListener(
+                new SeekBar.OnSeekBarChangeListener() {
+
+                    @Override
+                    public void onProgressChanged(
+                            SeekBar seekBar,
+                            int progress,
+                            boolean fromUser
+                    ) {
+                        if (musicPlayer != null) {
+                            float level = progress / 100f;
+
+                            musicPlayer.setVolume(
+                                    level, level
+                            );
+                        }
+                    }
+
+                    @Override
+                    public void onStartTrackingTouch(
+                            SeekBar seekBar
+                    ) {
+                    }
+
+                    @Override
+                    public void onStopTrackingTouch(
+                            SeekBar seekBar
+                    ) {
+                    }
+                }
+        );
+
+        addButton("رجوع", this::showHome);
+    }
+
+    // ---------------- ABOUT ----------------
+
+    private void showAbout() {
+        prepareScreen("حول التطبيق");
+
+        addText("SAMIX MOSTA 4.0", 23);
+        addText("محاكي مورس والاتصالات اللاسلكية", 17);
+        addText("تطبيق تعليمي ترفيهي محلي.", 16);
+        addText("عزيز 29 • سامي 27 • دبشونة", 16);
+
+        addButton("رجوع", this::showHome);
+    }
+
+    private void showMessage(String message) {
+        Toast.makeText(
+                this, message, Toast.LENGTH_SHORT
+        ).show();
+    }
+
+    // ---------------- PERMISSIONS ----------------
 
     @Override
     public void onRequestPermissionsResult(
             int requestCode,
             String[] permissions,
-            int[] grantResults) {
-
+            int[] grantResults
+    ) {
         super.onRequestPermissionsResult(
-                requestCode, permissions, grantResults);
+                requestCode, permissions, grantResults
+        );
 
-        if (requestCode == 100 && permissionWaiting) {
-            permissionWaiting = false;
+        if (requestCode == MIC_PERMISSION) {
 
             if (grantResults.length > 0 &&
-                    grantResults[0] == PackageManager.PERMISSION_GRANT
+                    grantResults[0] ==
+                            PackageManager.PERMISSION_GRANTED) {
+
+                beginRecording();
+
+            } else {
+                showMessage(
+                        "يجب السماح باستخدام الميكروفون للتسجيل"
+                );
+            }
+        }
+    }
+
+    // ---------------- LIFECYCLE ----------------
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+
+        if (musicPlayer != null &&
+                musicPlayer.isPlaying()) {
+            musicPlayer.pause();
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+
+        if (musicEnabled && musicPlayer != null) {
+            musicPlayer.start();
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+
+        if (isRecording) {
+            try {
+                recorder.stop();
+            } catch (Exception ignored) {
+            }
+
+            isRecording = false;
+        }
+
+        releaseRecorder();
+
+        if (musicPlayer != null) {
+      
