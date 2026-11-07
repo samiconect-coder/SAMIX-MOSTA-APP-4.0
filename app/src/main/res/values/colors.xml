@@ -1,0 +1,9 @@
+
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="samix_background">#081412</color>
+    <color name="samix_green">#194B39</color>
+    <color name="samix_gold">#E1BE5A</color>
+    <color name="samix_white">#FFFFFF</color>
+    <color name="samix_dark">#05100E</color>
+</resources>
