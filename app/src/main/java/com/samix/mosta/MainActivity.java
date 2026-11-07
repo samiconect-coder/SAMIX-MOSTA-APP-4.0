@@ -29,6 +29,7 @@ public class MainActivity extends Activity {
     private final int WHITE = Color.WHITE;
 
     private LinearLayout mainLayout;
+
     private MediaPlayer musicPlayer;
     private MediaRecorder recorder;
     private ToneGenerator toneGenerator;
@@ -37,8 +38,9 @@ public class MainActivity extends Activity {
     private boolean radioOn = false;
     private boolean isRecording = false;
 
+    private int musicVolume = 35;
+
     private File recordingFile;
-    private String morseResult = "";
 
     private static final int MIC_PERMISSION = 100;
 
@@ -56,6 +58,8 @@ public class MainActivity extends Activity {
         initializeAudio();
         showHome();
     }
+
+    // ---------------- MORSE DATA ----------------
 
     private void initializeMorse() {
         String[] letters = {
@@ -82,33 +86,80 @@ public class MainActivity extends Activity {
         }
     }
 
+    // ---------------- AUDIO ----------------
+
     private void initializeAudio() {
-        toneGenerator = new ToneGenerator(
-                AudioManager.STREAM_MUSIC, 70
-        );
+        try {
+            toneGenerator = new ToneGenerator(
+                    AudioManager.STREAM_MUSIC, 70
+            );
+        } catch (Exception ignored) {
+            toneGenerator = null;
+        }
+
+        startMusic();
+    }
+
+    private void startMusic() {
+        if (!musicEnabled) return;
 
         try {
-            musicPlayer = MediaPlayer.create(
-                    this, R.raw.background_music
-            );
+            if (musicPlayer == null) {
+                musicPlayer = MediaPlayer.create(
+                        this, R.raw.background_music
+                );
 
-            if (musicPlayer != null) {
-                musicPlayer.setLooping(true);
-                musicPlayer.setVolume(0.35f, 0.35f);
-
-                if (musicEnabled) {
-                    musicPlayer.start();
+                if (musicPlayer != null) {
+                    musicPlayer.setLooping(true);
+                    float volume = musicVolume / 100f;
+                    musicPlayer.setVolume(volume, volume);
                 }
             }
-        } catch (Exception e) {
+
+            if (musicPlayer != null &&
+                    !musicPlayer.isPlaying()) {
+                musicPlayer.start();
+            }
+
+        } catch (Exception ignored) {
+            releaseMusic();
+        }
+    }
+
+    private void pauseMusic() {
+        try {
+            if (musicPlayer != null &&
+                    musicPlayer.isPlaying()) {
+                musicPlayer.pause();
+            }
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void releaseMusic() {
+        if (musicPlayer != null) {
+            try {
+                musicPlayer.stop();
+            } catch (Exception ignored) {
+            }
+
+            try {
+                musicPlayer.release();
+            } catch (Exception ignored) {
+            }
+
             musicPlayer = null;
         }
     }
 
+    // ---------------- DESIGN ----------------
+
     private GradientDrawable roundedBackground(
             int color, int borderColor
     ) {
-        GradientDrawable drawable = new GradientDrawable();
+        GradientDrawable drawable =
+                new GradientDrawable();
+
         drawable.setColor(color);
         drawable.setCornerRadius(24);
 
@@ -123,21 +174,28 @@ public class MainActivity extends Activity {
             String value, int size, int color
     ) {
         TextView text = new TextView(this);
+
         text.setText(value);
         text.setTextSize(size);
         text.setTextColor(color);
         text.setGravity(Gravity.CENTER);
-        text.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        text.setTypeface(
+                Typeface.DEFAULT, Typeface.BOLD
+        );
+
         text.setPadding(12, 12, 12, 12);
+
         return text;
     }
 
     private Button makeButton(String value) {
         Button button = new Button(this);
+
         button.setText(value);
         button.setTextColor(WHITE);
         button.setTextSize(16);
         button.setAllCaps(false);
+
         button.setBackground(
                 roundedBackground(GREEN, GOLD)
         );
@@ -158,8 +216,14 @@ public class MainActivity extends Activity {
         ScrollView scroll = new ScrollView(this);
 
         mainLayout = new LinearLayout(this);
-        mainLayout.setOrientation(LinearLayout.VERTICAL);
-        mainLayout.setGravity(Gravity.CENTER_HORIZONTAL);
+        mainLayout.setOrientation(
+                LinearLayout.VERTICAL
+        );
+
+        mainLayout.setGravity(
+                Gravity.CENTER_HORIZONTAL
+        );
+
         mainLayout.setPadding(16, 20, 16, 25);
 
         try {
@@ -171,31 +235,30 @@ public class MainActivity extends Activity {
         }
 
         scroll.addView(mainLayout);
-
         setContentView(scroll);
 
-        TextView heading = makeText(
-                title, 25, GOLD
+        mainLayout.addView(
+                makeText(title, 25, GOLD)
         );
 
-        mainLayout.addView(heading);
-
-        TextView subtitle = makeText(
-                "SAMIX MOSTA • VERSION 4.0",
-                12, WHITE
+        mainLayout.addView(
+                makeText(
+                        "SAMIX MOSTA • VERSION 4.0",
+                        12, WHITE
+                )
         );
-
-        mainLayout.addView(subtitle);
 
         View line = new View(this);
         line.setBackgroundColor(GOLD);
 
         LinearLayout.LayoutParams lineParams =
                 new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT, 2
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        2
                 );
 
         lineParams.setMargins(15, 12, 15, 18);
+
         mainLayout.addView(line, lineParams);
     }
 
@@ -219,33 +282,74 @@ public class MainActivity extends Activity {
         mainLayout.addView(button);
     }
 
+    private void showMessage(String message) {
+        Toast.makeText(
+                this,
+                message,
+                Toast.LENGTH_SHORT
+        ).show();
+    }
+
+    // ---------------- HOME ----------------
+
     private void showHome() {
         prepareScreen("SAMIX MOSTA");
 
         addText("مرحبا بك في تطبيق ساميكس", 19);
-        addText("عزيز 29 • سامي 27 • دبشونة", 15);
+        addText(
+                "عزيز 29 • سامي 27 • دبشونة",
+                15
+        );
 
-        addButton("📻 محاكي اللاسلكي", this::showRadio);
-        addButton("⌁ مترجم مورس", this::showMorse);
-        addButton("🎓 أكاديمية مورس", this::showAcademy);
-        addButton("🧠 اختبار المعرفة", this::showQuiz);
-        addButton("⚙️ إعدادات التطبيق", this::showSettings);
-        addButton("ℹ️ حول التطبيق", this::showAbout);
+        addButton(
+                "📻 محاكي اللاسلكي",
+                this::showRadio
+        );
+
+        addButton(
+                "⌁ مترجم مورس",
+                this::showMorse
+        );
+
+        addButton(
+                "🎓 أكاديمية مورس",
+                this::showAcademy
+        );
+
+        addButton(
+                "🧠 اختبار المعرفة",
+                this::showQuiz
+        );
+
+        addButton(
+                "⚙️ إعدادات التطبيق",
+                this::showSettings
+        );
+
+        addButton(
+                "ℹ️ حول التطبيق",
+                this::showAbout
+        );
     }
 
-    // ---------------- MORSE ----------------
+    // ---------------- MORSE TRANSLATOR ----------------
 
     private void showMorse() {
         prepareScreen("مترجم مورس");
 
-        addText("اكتب النص باللغة الإنجليزية أو الأرقام", 15);
+        addText(
+                "اكتب النص باللغة الإنجليزية أو الأرقام",
+                15
+        );
 
         EditText input = new EditText(this);
+
         input.setTextColor(WHITE);
         input.setHintTextColor(Color.LTGRAY);
         input.setHint("اكتب هنا...");
         input.setTextSize(18);
         input.setPadding(15, 15, 15, 15);
+
         input.setBackground(
                 roundedBackground(DARK, GOLD)
         );
@@ -260,15 +364,20 @@ public class MainActivity extends Activity {
         mainLayout.addView(output);
 
         addButton("تحويل إلى مورس", () -> {
-            String text = input.getText().toString()
-                    .toUpperCase().trim();
+            String value = input.getText()
+                    .toString()
+                    .toUpperCase()
+                    .trim();
 
-            output.setText(encodeMorse(text));
+            output.setText(encodeMorse(value));
         });
 
         addButton("تحويل من مورس إلى نص", () -> {
-            String text = input.getText().toString().trim();
-            output.setText(decodeMorse(text));
+            String value = input.getText()
+                    .toString()
+                    .trim();
+
+            output.setText(decodeMorse(value));
         });
 
         addButton("مسح النص", () -> {
@@ -286,7 +395,7 @@ public class MainActivity extends Activity {
             char c = text.charAt(i);
 
             if (c == ' ') {
-                result.append(" / ");
+                result.append("/ ");
             } else if (morse.containsKey(c)) {
                 result.append(morse.get(c)).append(" ");
             } else {
@@ -335,6 +444,7 @@ public class MainActivity extends Activity {
         prepareScreen("أكاديمية مورس");
 
         addText("الدرس الأول: ما هو مورس؟", 20);
+
         addText(
                 "نظام اتصال يستخدم النقاط والشرطات "
                         + "لتمثيل الحروف والأرقام.",
@@ -358,12 +468,16 @@ public class MainActivity extends Activity {
         addText("0 = -----", 18);
 
         addText(
-                "ملاحظة: تفصل المسافة بين الحروف، "
+                "تفصل المسافة بين الحروف، "
                         + "وتستخدم / للفصل بين الكلمات.",
                 15
         );
 
-        addButton("فتح مترجم مورس", this::showMorse);
+        addButton(
+                "فتح مترجم مورس",
+                this::showMorse
+        );
+
         addButton("رجوع", this::showHome);
     }
 
@@ -372,7 +486,10 @@ public class MainActivity extends Activity {
     private void showQuiz() {
         prepareScreen("اختبار مورس");
 
-        addText("ما هو الرمز الصحيح للحرف S؟", 20);
+        addText(
+                "ما هو الرمز الصحيح للحرف S؟",
+                20
+        );
 
         addButton("A) .-", () ->
                 showQuizResult(false)
@@ -395,10 +512,17 @@ public class MainActivity extends Activity {
         if (correct) {
             addText("إجابة صحيحة! أحسنت.", 22);
         } else {
-            addText("إجابة غير صحيحة. حاول مجددا.", 20);
+            addText(
+                    "إجابة غير صحيحة. حاول مجددا.",
+                    20
+            );
         }
 
-        addButton("إعادة الاختبار", this::showQuiz);
+        addButton(
+                "إعادة الاختبار",
+                this::showQuiz
+        );
+
         addButton("الرئيسية", this::showHome);
     }
 
@@ -408,20 +532,24 @@ public class MainActivity extends Activity {
         prepareScreen("محاكي اللاسلكي");
 
         addText("محاكي تعليمي محلي", 17);
+
         addText(
-                "هذا المحاكي لا يتصل بأجهزة أو ترددات حقيقية.",
+                "هذا المحاكي لا يتصل بأجهزة "
+                        + "أو ترددات حقيقية.",
                 14
         );
 
-        TextView status = makeText(
-                radioOn ? "الجهاز: يعمل" : "الجهاز: متوقف",
-                20, GOLD
+        addText(
+                radioOn
+                        ? "الجهاز: يعمل"
+                        : "الجهاز: متوقف",
+                20
         );
 
-        mainLayout.addView(status);
-
         addButton(
-                radioOn ? "إيقاف الجهاز" : "تشغيل الجهاز",
+                radioOn
+                        ? "إيقاف الجهاز"
+                        : "تشغيل الجهاز",
                 () -> {
                     radioOn = !radioOn;
 
@@ -433,9 +561,20 @@ public class MainActivity extends Activity {
                 }
         );
 
-        addButton("تسجيل صوتي", this::startRecording);
-        addButton("إيقاف التسجيل", this::stopRecording);
-        addButton("إعادة سماع التسجيل", this::playRecording);
+        addButton(
+                "بدء التسجيل الصوتي",
+                this::startRecording
+        );
+
+        addButton(
+                "إيقاف التسجيل",
+                this::stopRecording
+        );
+
+        addButton(
+                "إعادة سماع التسجيل",
+                this::playRecording
+        );
 
         addButton("صوت بداية الإرسال", () -> {
             if (radioOn) {
@@ -453,10 +592,11 @@ public class MainActivity extends Activity {
             }
         });
 
-        addButton("مؤثر تشويش صوتي", () -> {
+        addButton("مؤثر صوتي", () -> {
             if (radioOn && toneGenerator != null) {
                 toneGenerator.startTone(
-                        ToneGenerator.TONE_SUP_ERROR, 400
+                        ToneGenerator.TONE_SUP_ERROR,
+                        400
                 );
             } else {
                 showMessage("شغّل الجهاز أولا");
@@ -490,14 +630,15 @@ public class MainActivity extends Activity {
     }
 
     private void beginRecording() {
-        try {
-            if (isRecording) {
-                showMessage("التسجيل يعمل بالفعل");
-                return;
-            }
+        if (isRecording) {
+            showMessage("التسجيل يعمل بالفعل");
+            return;
+        }
 
+        try {
             recordingFile = new File(
-                    getCacheDir(), "samix_recording.m4a"
+                    getCacheDir(),
+                    "samix_recording.m4a"
             );
 
             recorder = new MediaRecorder();
@@ -522,6 +663,8 @@ public class MainActivity extends Activity {
             recorder.start();
 
             isRecording = true;
+
+            pauseMusic();
             playBeep();
 
             showMessage("بدأ التسجيل الصوتي");
@@ -548,7 +691,12 @@ public class MainActivity extends Activity {
 
         isRecording = false;
         releaseRecorder();
+
         playEndBeep();
+
+        if (musicEnabled) {
+            startMusic();
+        }
     }
 
     private void playRecording() {
@@ -570,13 +718,34 @@ public class MainActivity extends Activity {
                     recordingFile.getAbsolutePath()
             );
 
-            player.setOnCompletionListener(p -> p.release());
+            player.setOnCompletionListener(p -> {
+                p.release();
 
+                if (musicEnabled) {
+                    startMusic();
+                }
+            });
+
+            player.setOnErrorListener((p, what, extra) -> {
+                p.release();
+
+                if (musicEnabled) {
+                    startMusic();
+                }
+
+                return true;
+            });
+
+            pauseMusic();
             player.prepare();
             player.start();
 
         } catch (Exception e) {
             showMessage("تعذر تشغيل التسجيل");
+
+            if (musicEnabled) {
+                startMusic();
+            }
         }
     }
 
@@ -584,6 +753,10 @@ public class MainActivity extends Activity {
         if (recorder != null) {
             try {
                 recorder.reset();
+            } catch (Exception ignored) {
+            }
+
+            try {
                 recorder.release();
             } catch (Exception ignored) {
             }
@@ -595,7 +768,8 @@ public class MainActivity extends Activity {
     private void playBeep() {
         if (toneGenerator != null) {
             toneGenerator.startTone(
-                    ToneGenerator.TONE_PROP_BEEP, 180
+                    ToneGenerator.TONE_PROP_BEEP,
+                    180
             );
         }
     }
@@ -603,7 +777,8 @@ public class MainActivity extends Activity {
     private void playEndBeep() {
         if (toneGenerator != null) {
             toneGenerator.startTone(
-                    ToneGenerator.TONE_PROP_ACK, 250
+                    ToneGenerator.TONE_PROP_ACK,
+                    250
             );
         }
     }
@@ -622,12 +797,10 @@ public class MainActivity extends Activity {
                 () -> {
                     musicEnabled = !musicEnabled;
 
-                    if (musicPlayer != null) {
-                        if (musicEnabled) {
-                            musicPlayer.start();
-                        } else {
-                            musicPlayer.pause();
-                        }
+                    if (musicEnabled) {
+                        startMusic();
+                    } else {
+                        pauseMusic();
                     }
 
                     showSettings();
@@ -637,8 +810,9 @@ public class MainActivity extends Activity {
         addText("مستوى صوت الموسيقى", 16);
 
         SeekBar volume = new SeekBar(this);
+
         volume.setMax(100);
-        volume.setProgress(35);
+        volume.setProgress(musicVolume);
 
         mainLayout.addView(volume);
 
@@ -647,118 +821,4 @@ public class MainActivity extends Activity {
 
                     @Override
                     public void onProgressChanged(
-                            SeekBar seekBar,
-                            int progress,
-                            boolean fromUser
-                    ) {
-                        if (musicPlayer != null) {
-                            float level = progress / 100f;
-
-                            musicPlayer.setVolume(
-                                    level, level
-                            );
-                        }
-                    }
-
-                    @Override
-                    public void onStartTrackingTouch(
-                            SeekBar seekBar
-                    ) {
-                    }
-
-                    @Override
-                    public void onStopTrackingTouch(
-                            SeekBar seekBar
-                    ) {
-                    }
-                }
-        );
-
-        addButton("رجوع", this::showHome);
-    }
-
-    // ---------------- ABOUT ----------------
-
-    private void showAbout() {
-        prepareScreen("حول التطبيق");
-
-        addText("SAMIX MOSTA 4.0", 23);
-        addText("محاكي مورس والاتصالات اللاسلكية", 17);
-        addText("تطبيق تعليمي ترفيهي محلي.", 16);
-        addText("عزيز 29 • سامي 27 • دبشونة", 16);
-
-        addButton("رجوع", this::showHome);
-    }
-
-    private void showMessage(String message) {
-        Toast.makeText(
-                this, message, Toast.LENGTH_SHORT
-        ).show();
-    }
-
-    // ---------------- PERMISSIONS ----------------
-
-    @Override
-    public void onRequestPermissionsResult(
-            int requestCode,
-            String[] permissions,
-            int[] grantResults
-    ) {
-        super.onRequestPermissionsResult(
-                requestCode, permissions, grantResults
-        );
-
-        if (requestCode == MIC_PERMISSION) {
-
-            if (grantResults.length > 0 &&
-                    grantResults[0] ==
-                            PackageManager.PERMISSION_GRANTED) {
-
-                beginRecording();
-
-            } else {
-                showMessage(
-                        "يجب السماح باستخدام الميكروفون للتسجيل"
-                );
-            }
-        }
-    }
-
-    // ---------------- LIFECYCLE ----------------
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-
-        if (musicPlayer != null &&
-                musicPlayer.isPlaying()) {
-            musicPlayer.pause();
-        }
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-
-        if (musicEnabled && musicPlayer != null) {
-            musicPlayer.start();
-        }
-    }
-
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-
-        if (isRecording) {
-            try {
-                recorder.stop();
-            } catch (Exception ignored) {
-            }
-
-            isRecording = false;
-        }
-
-        releaseRecorder();
-
-        if (musicPlayer != null) {
-      
+    
