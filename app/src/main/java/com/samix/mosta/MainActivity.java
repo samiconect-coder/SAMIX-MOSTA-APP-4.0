@@ -223,14 +223,17 @@ public class MainActivity extends Activity {
 
         if (musicPlayer != null) {
 
-            float volume = musicVolume / 100.0f;
+            try {
+                float volume = musicVolume / 100.0f;
 
-            // خفض الموسيقى مؤقتاً أثناء تشغيل مورس
-            if (morsePlaying) {
-                volume *= 0.18f;
+                if (morsePlaying) {
+                    volume *= 0.18f;
+                }
+
+                musicPlayer.setVolume(volume, volume);
+
+            } catch (Exception ignored) {
             }
-
-            musicPlayer.setVolume(volume, volume);
         }
     }
 
@@ -277,10 +280,13 @@ public class MainActivity extends Activity {
         }
     }
 
-    // إنشاء تسلسل أصوات مورس
     private ArrayList<MorseTone> createMorseSequence(String code) {
 
         ArrayList<MorseTone> sequence = new ArrayList<>();
+
+        if (code == null || code.trim().isEmpty()) {
+            return null;
+        }
 
         String[] tokens = code.trim().split("\\s+");
 
@@ -300,14 +306,7 @@ public class MainActivity extends Activity {
 
                 char symbol = token.charAt(j);
 
-                int duration;
-
-                if (symbol == '.') {
-                    duration = 120;
-                } else {
-                    duration = 360;
-                }
-
+                int duration = symbol == '.' ? 120 : 360;
                 int gap = 120;
 
                 if (j == token.length() - 1) {
@@ -332,7 +331,6 @@ public class MainActivity extends Activity {
         return sequence;
     }
 
-    // تشغيل نتيجة مورس دون إيقاف الراديو أو التسجيل
     private void playMorseResult(String code) {
 
         if (toneGenerator == null) {
@@ -390,14 +388,12 @@ public class MainActivity extends Activity {
             applyMusicVolume();
 
             showMessage("انتهى تشغيل شفرة مورس");
-
             return;
         }
 
         MorseTone event = sequence.get(index);
 
         if (toneGenerator != null) {
-
             toneGenerator.startTone(
                     ToneGenerator.TONE_PROP_BEEP,
                     event.duration
@@ -626,7 +622,6 @@ public class MainActivity extends Activity {
             output.setText(decodeMorse(value));
         });
 
-        // زر الاستماع الجديد
         addButton("🔊 استماع إلى نتيجة مورس", () -> {
 
             String result = output.getText().toString();
@@ -814,4 +809,9 @@ public class MainActivity extends Activity {
 
         if (isRecording) {
             showMessage("التسجيل يعمل بالفعل");
-         
+            return;
+        }
+
+        if (Build.VERSION.SDK_INT >= 23) {
+
+            if (checkSelfPermission(Manifes
