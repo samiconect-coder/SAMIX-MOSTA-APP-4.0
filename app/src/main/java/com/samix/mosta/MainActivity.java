@@ -1,9 +1,9 @@
-
 package com.samix.mosta;
 
 import android.Manifest;
 import android.app.Activity;
 import android.content.pm.PackageManager;
+import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
@@ -45,11 +45,9 @@ public class MainActivity extends Activity {
     private MediaPlayer musicPlayer;
     private MediaRecorder recorder;
     private MediaPlayer recordingPlayer;
-
     private ToneGenerator toneGenerator;
 
-    private final Handler morseHandler =
-            new Handler(Looper.getMainLooper());
+    private final Handler morseHandler = new Handler(Looper.getMainLooper());
 
     private boolean musicEnabled = true;
     private boolean radioOn = false;
@@ -64,8 +62,8 @@ public class MainActivity extends Activity {
     private final Map<Character, String> morse = new HashMap<>();
 
     private static class MorseTone {
-        int duration;
-        int gapAfter;
+        final int duration;
+        final int gapAfter;
 
         MorseTone(int duration, int gapAfter) {
             this.duration = duration;
@@ -88,7 +86,6 @@ public class MainActivity extends Activity {
     }
 
     private void initializeMorse() {
-
         String[] letters = {
                 ".-", "-...", "-.-.", "-..", ".", "..-.",
                 "--.", "....", "..", ".---", "-.-", ".-..",
@@ -112,16 +109,16 @@ public class MainActivity extends Activity {
     }
 
     private String encodeMorse(String source) {
-
         StringBuilder result = new StringBuilder();
         String value = source.toUpperCase().trim();
 
         for (int i = 0; i < value.length(); i++) {
-
             char character = value.charAt(i);
 
             if (character == ' ') {
-                result.append("/ ");
+                if (result.length() > 0 && result.charAt(result.length() - 1) != '/') {
+                    result.append("/ ");
+                }
             } else if (morse.containsKey(character)) {
                 result.append(morse.get(character)).append(' ');
             } else {
@@ -133,7 +130,6 @@ public class MainActivity extends Activity {
     }
 
     private String decodeMorse(String source) {
-
         StringBuilder result = new StringBuilder();
         String value = source.trim();
 
@@ -143,23 +139,16 @@ public class MainActivity extends Activity {
 
         String[] words = value.split("\\s*/\\s*");
 
-        for (int wordIndex = 0;
-             wordIndex < words.length;
-             wordIndex++) {
-
+        for (int wordIndex = 0; wordIndex < words.length; wordIndex++) {
             String word = words[wordIndex].trim();
 
             if (!word.isEmpty()) {
-
                 String[] symbols = word.split("\\s+");
 
                 for (String symbol : symbols) {
-
                     boolean found = false;
 
-                    for (Map.Entry<Character, String> entry
-                            : morse.entrySet()) {
-
+                    for (Map.Entry<Character, String> entry : morse.entrySet()) {
                         if (entry.getValue().equals(symbol)) {
                             result.append(entry.getKey());
                             found = true;
@@ -182,27 +171,21 @@ public class MainActivity extends Activity {
     }
 
     private void initializeToneGenerator() {
-
         try {
-            toneGenerator =
-                    new ToneGenerator(AudioManager.STREAM_MUSIC, 75);
+            toneGenerator = new ToneGenerator(AudioManager.STREAM_MUSIC, 75);
         } catch (Exception exception) {
             toneGenerator = null;
         }
     }
 
     private void startMusic() {
-
         if (!musicEnabled) {
             return;
         }
 
         try {
-
             if (musicPlayer == null) {
-
-                musicPlayer =
-                        MediaPlayer.create(this, R.raw.background_music);
+                musicPlayer = MediaPlayer.create(this, R.raw.background_music);
 
                 if (musicPlayer != null) {
                     musicPlayer.setLooping(true);
@@ -213,16 +196,13 @@ public class MainActivity extends Activity {
             if (musicPlayer != null && !musicPlayer.isPlaying()) {
                 musicPlayer.start();
             }
-
         } catch (Exception exception) {
             releaseMusic();
         }
     }
 
     private void applyMusicVolume() {
-
         if (musicPlayer != null) {
-
             try {
                 float volume = musicVolume / 100.0f;
 
@@ -231,67 +211,51 @@ public class MainActivity extends Activity {
                 }
 
                 musicPlayer.setVolume(volume, volume);
-
             } catch (Exception ignored) {
             }
         }
     }
 
     private void pauseMusic() {
-
         try {
-
             if (musicPlayer != null && musicPlayer.isPlaying()) {
                 musicPlayer.pause();
             }
-
         } catch (Exception ignored) {
         }
     }
 
     private void releaseMusic() {
-
         if (musicPlayer != null) {
-
             try {
                 musicPlayer.release();
             } catch (Exception ignored) {
             }
-
             musicPlayer = null;
         }
     }
 
     private void playStartBeep() {
-
         if (toneGenerator != null) {
-            toneGenerator.startTone(
-                    ToneGenerator.TONE_PROP_BEEP, 180
-            );
+            toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP, 180);
         }
     }
 
     private void playEndBeep() {
-
         if (toneGenerator != null) {
-            toneGenerator.startTone(
-                    ToneGenerator.TONE_PROP_ACK, 230
-            );
+            toneGenerator.startTone(ToneGenerator.TONE_PROP_ACK, 230);
         }
     }
 
     private ArrayList<MorseTone> createMorseSequence(String code) {
-
-        ArrayList<MorseTone> sequence = new ArrayList<>();
-
         if (code == null || code.trim().isEmpty()) {
             return null;
         }
 
+        ArrayList<MorseTone> sequence = new ArrayList<>();
         String[] tokens = code.trim().split("\\s+");
 
         for (int i = 0; i < tokens.length; i++) {
-
             String token = tokens[i];
 
             if (token.equals("/")) {
@@ -303,22 +267,13 @@ public class MainActivity extends Activity {
             }
 
             for (int j = 0; j < token.length(); j++) {
-
                 char symbol = token.charAt(j);
-
                 int duration = symbol == '.' ? 120 : 360;
                 int gap = 120;
 
                 if (j == token.length() - 1) {
-
                     if (i + 1 < tokens.length) {
-
-                        if (tokens[i + 1].equals("/")) {
-                            gap = 840;
-                        } else {
-                            gap = 360;
-                        }
-
+                        gap = tokens[i + 1].equals("/") ? 840 : 360;
                     } else {
                         gap = 0;
                     }
@@ -332,7 +287,6 @@ public class MainActivity extends Activity {
     }
 
     private void playMorseResult(String code) {
-
         if (toneGenerator == null) {
             showMessage("تعذر تشغيل مولد الصوت");
             return;
@@ -340,13 +294,11 @@ public class MainActivity extends Activity {
 
         if (code == null || code.trim().isEmpty()
                 || code.equals("ستظهر النتيجة هنا")) {
-
             showMessage("حوّل النص إلى مورس أولاً");
             return;
         }
 
-        ArrayList<MorseTone> sequence =
-                createMorseSequence(code);
+        ArrayList<MorseTone> sequence = createMorseSequence(code);
 
         if (sequence == null || sequence.isEmpty()) {
             showMessage("النتيجة ليست شفرة مورس صالحة");
@@ -359,26 +311,18 @@ public class MainActivity extends Activity {
         applyMusicVolume();
 
         morseRunId++;
-
         int currentRun = morseRunId;
 
         showMessage("بدأ الاستماع إلى شفرة مورس");
-
         playMorseStep(sequence, 0, currentRun);
     }
 
-    private void playMorseStep(
-            ArrayList<MorseTone> sequence,
-            int index,
-            int currentRun
-    ) {
-
+    private void playMorseStep(ArrayList<MorseTone> sequence, int index, int currentRun) {
         if (currentRun != morseRunId || !morsePlaying) {
             return;
         }
 
         if (index >= sequence.size()) {
-
             morsePlaying = false;
 
             if (toneGenerator != null) {
@@ -386,7 +330,6 @@ public class MainActivity extends Activity {
             }
 
             applyMusicVolume();
-
             showMessage("انتهى تشغيل شفرة مورس");
             return;
         }
@@ -394,32 +337,22 @@ public class MainActivity extends Activity {
         MorseTone event = sequence.get(index);
 
         if (toneGenerator != null) {
-            toneGenerator.startTone(
-                    ToneGenerator.TONE_PROP_BEEP,
-                    event.duration
-            );
+            toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP, event.duration);
         }
 
         int nextDelay = event.duration + event.gapAfter;
 
         morseHandler.postDelayed(
-                () -> playMorseStep(
-                        sequence,
-                        index + 1,
-                        currentRun
-                ),
+                () -> playMorseStep(sequence, index + 1, currentRun),
                 nextDelay
         );
     }
 
     private void stopMorsePlayback() {
-
         morseRunId++;
-
         morseHandler.removeCallbacksAndMessages(null);
 
         if (morsePlaying) {
-
             morsePlaying = false;
 
             if (toneGenerator != null) {
@@ -430,13 +363,8 @@ public class MainActivity extends Activity {
         applyMusicVolume();
     }
 
-    private GradientDrawable makeBackground(
-            int color,
-            int borderColor
-    ) {
-
+    private GradientDrawable makeBackground(int color, int borderColor) {
         GradientDrawable drawable = new GradientDrawable();
-
         drawable.setColor(color);
         drawable.setCornerRadius(24);
 
@@ -447,52 +375,36 @@ public class MainActivity extends Activity {
         return drawable;
     }
 
-    private TextView makeText(
-            String value,
-            int size,
-            int color
-    ) {
-
+    private TextView makeText(String value, int size, int color) {
         TextView text = new TextView(this);
-
         text.setText(value);
         text.setTextSize(size);
         text.setTextColor(color);
         text.setGravity(Gravity.CENTER);
         text.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         text.setPadding(12, 12, 12, 12);
-
         return text;
     }
 
     private Button makeButton(String value) {
-
         Button button = new Button(this);
-
         button.setText(value);
         button.setTextColor(COLOR_WHITE);
         button.setTextSize(16);
         button.setAllCaps(false);
+        button.setBackground(makeBackground(COLOR_GREEN, COLOR_GOLD));
 
-        button.setBackground(
-                makeBackground(COLOR_GREEN, COLOR_GOLD)
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
         );
 
-        LinearLayout.LayoutParams params =
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                );
-
         params.setMargins(7, 7, 7, 7);
-
         button.setLayoutParams(params);
-
         return button;
     }
 
     private void prepareScreen(String title) {
-
         stopMorsePlayback();
 
         ScrollView scrollView = new ScrollView(this);
@@ -503,21 +415,15 @@ public class MainActivity extends Activity {
         mainLayout.setPadding(16, 20, 16, 28);
 
         try {
-            mainLayout.setBackgroundResource(
-                    R.drawable.background_samix
-            );
+            mainLayout.setBackgroundResource(R.drawable.background_samix);
         } catch (Exception exception) {
             mainLayout.setBackgroundColor(COLOR_DARK);
         }
 
         scrollView.addView(mainLayout);
-
         setContentView(scrollView);
 
-        mainLayout.addView(
-                makeText(title, 25, COLOR_GOLD)
-        );
-
+        mainLayout.addView(makeText(title, 25, COLOR_GOLD));
         mainLayout.addView(
                 makeText("SAMIX MOSTA  •  VERSION 4.0", 12, COLOR_WHITE)
         );
@@ -525,29 +431,23 @@ public class MainActivity extends Activity {
         View divider = new View(this);
         divider.setBackgroundColor(COLOR_GOLD);
 
-        LinearLayout.LayoutParams dividerParams =
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        2
-                );
+        LinearLayout.LayoutParams dividerParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                2
+        );
 
         dividerParams.setMargins(15, 12, 15, 18);
-
         mainLayout.addView(divider, dividerParams);
     }
 
     private void addText(String value, int size) {
-        mainLayout.addView(
-                makeText(value, size, COLOR_WHITE)
-        );
+        mainLayout.addView(makeText(value, size, COLOR_WHITE));
     }
 
     private void addButton(String value, Runnable action) {
-
         Button button = makeButton(value);
 
         button.setOnClickListener(view -> {
-
             if (action != null) {
                 action.run();
             }
@@ -557,16 +457,10 @@ public class MainActivity extends Activity {
     }
 
     private void showMessage(String message) {
-
-        Toast.makeText(
-                this,
-                message,
-                Toast.LENGTH_SHORT
-        ).show();
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
     }
 
     private void showHome() {
-
         prepareScreen("SAMIX MOSTA");
 
         addText("مرحبا بك في تطبيق ساميكس", 19);
@@ -581,65 +475,42 @@ public class MainActivity extends Activity {
     }
 
     private void showMorse() {
-
         prepareScreen("مترجم مورس");
-
         addText("يدعم الحروف الإنجليزية والأرقام", 15);
 
         EditText input = new EditText(this);
-
         input.setTextColor(COLOR_WHITE);
         input.setHintTextColor(Color.LTGRAY);
         input.setHint("اكتب النص أو رموز مورس هنا");
         input.setTextSize(17);
         input.setPadding(14, 14, 14, 14);
-
-        input.setBackground(
-                makeBackground(COLOR_DARK, COLOR_GOLD)
-        );
-
+        input.setBackground(makeBackground(COLOR_DARK, COLOR_GOLD));
         mainLayout.addView(input);
 
-        TextView output = makeText(
-                "ستظهر النتيجة هنا",
-                18,
-                COLOR_GOLD
-        );
-
+        TextView output = makeText("ستظهر النتيجة هنا", 18, COLOR_GOLD);
         mainLayout.addView(output);
 
         addButton("تحويل النص إلى مورس", () -> {
-
             String value = input.getText().toString();
-
             output.setText(encodeMorse(value));
         });
 
         addButton("تحويل مورس إلى نص", () -> {
-
             String value = input.getText().toString();
-
             output.setText(decodeMorse(value));
         });
 
         addButton("🔊 استماع إلى نتيجة مورس", () -> {
-
-            String result = output.getText().toString();
-
-            playMorseResult(result);
+            playMorseResult(output.getText().toString());
         });
 
         addButton("إيقاف استماع مورس", () -> {
-
             stopMorsePlayback();
-
             showMessage("تم إيقاف استماع مورس");
         });
 
         addButton("مسح", () -> {
-
             stopMorsePlayback();
-
             input.setText("");
             output.setText("ستظهر النتيجة هنا");
         });
@@ -648,42 +519,29 @@ public class MainActivity extends Activity {
     }
 
     private void showAcademy() {
-
         prepareScreen("أكاديمية مورس");
 
         addText("الدرس الأول: ما هو مورس؟", 20);
-
-        addText(
-                "شفرة تمثل الحروف والأرقام باستخدام النقاط والشرطات.",
-                16
-        );
-
+        addText("شفرة تمثل الحروف والأرقام باستخدام النقاط والشرطات.", 16);
         addText("النقطة: .", 20);
         addText("الشرطة: -", 20);
 
         addText("الدرس الثاني: الحروف", 20);
-
         addText("A = .-     B = -...     C = -.-.", 17);
         addText("S = ...     O = ---     T = -", 17);
 
         addText("الدرس الثالث: الأرقام", 20);
-
         addText("1 = .----     2 = ..---     3 = ...--", 17);
         addText("0 = -----     5 = .....     9 = ----.", 17);
 
-        addText(
-                "المسافة تفصل بين الحروف، والرمز / يفصل الكلمات.",
-                15
-        );
+        addText("المسافة تفصل بين الحروف، والرمز / يفصل الكلمات.", 15);
 
         addButton("تجربة المترجم", this::showMorse);
         addButton("رجوع", this::showHome);
     }
 
     private void showQuiz() {
-
         prepareScreen("اختبار المعرفة");
-
         addText("ما هو رمز الحرف S في شفرة مورس؟", 20);
 
         addButton("A) .-", () -> showQuizResult(false));
@@ -694,16 +552,12 @@ public class MainActivity extends Activity {
     }
 
     private void showQuizResult(boolean correct) {
-
         prepareScreen("نتيجة الاختبار");
 
         if (correct) {
             addText("إجابة صحيحة! أحسنت.", 22);
         } else {
-            addText(
-                    "إجابة غير صحيحة. الإجابة الصحيحة هي ...",
-                    18
-            );
+            addText("إجابة غير صحيحة. الإجابة الصحيحة هي ...", 18);
         }
 
         addButton("إعادة الاختبار", this::showQuiz);
@@ -711,62 +565,41 @@ public class MainActivity extends Activity {
     }
 
     private void showRadio() {
-
         prepareScreen("محاكي اللاسلكي");
 
-        addText(
-                "محاكي صوتي تعليمي يعمل داخل الهاتف فقط.",
-                16
-        );
+        addText("محاكي صوتي تعليمي يعمل داخل الهاتف فقط.", 16);
+        addText("لا يتصل بترددات أو أجهزة اتصال حقيقية.", 14);
 
         addText(
-                "لا يتصل بترددات أو أجهزة اتصال حقيقية.",
-                14
-        );
-
-        addText(
-                radioOn
-                        ? "حالة الجهاز: يعمل"
-                        : "حالة الجهاز: متوقف",
+                radioOn ? "حالة الجهاز: يعمل" : "حالة الجهاز: متوقف",
                 20
         );
 
         addText(
-                isRecording
-                        ? "حالة التسجيل: جارٍ"
-                        : "حالة التسجيل: متوقف",
+                isRecording ? "حالة التسجيل: جارٍ" : "حالة التسجيل: متوقف",
                 16
         );
 
-        addButton(
-                radioOn ? "إيقاف الجهاز" : "تشغيل الجهاز",
-                () -> {
+        addButton(radioOn ? "إيقاف الجهاز" : "تشغيل الجهاز", () -> {
+            if (radioOn && isRecording) {
+                showMessage("أوقف التسجيل قبل إيقاف الجهاز");
+                return;
+            }
 
-                    if (radioOn && isRecording) {
+            radioOn = !radioOn;
 
-                        showMessage(
-                                "أوقف التسجيل قبل إيقاف الجهاز"
-                        );
+            if (radioOn) {
+                playStartBeep();
+            }
 
-                        return;
-                    }
-
-                    radioOn = !radioOn;
-
-                    if (radioOn) {
-                        playStartBeep();
-                    }
-
-                    showRadio();
-                }
-        );
+            showRadio();
+        });
 
         addButton("بدء التسجيل الصوتي", this::startRecording);
         addButton("إيقاف التسجيل", this::stopRecording);
         addButton("إعادة سماع التسجيل", this::playRecording);
 
         addButton("صوت بداية الإرسال", () -> {
-
             if (radioOn) {
                 playStartBeep();
             } else {
@@ -775,7 +608,6 @@ public class MainActivity extends Activity {
         });
 
         addButton("صوت نهاية الإرسال", () -> {
-
             if (radioOn) {
                 playEndBeep();
             } else {
@@ -784,14 +616,8 @@ public class MainActivity extends Activity {
         });
 
         addButton("مؤثر تشويش تجريبي", () -> {
-
             if (radioOn && toneGenerator != null) {
-
-                toneGenerator.startTone(
-                        ToneGenerator.TONE_SUP_ERROR,
-                        350
-                );
-
+                toneGenerator.startTone(ToneGenerator.TONE_SUP_ERROR, 350);
             } else {
                 showMessage("شغّل الجهاز أولا");
             }
@@ -801,7 +627,6 @@ public class MainActivity extends Activity {
     }
 
     private void startRecording() {
-
         if (!radioOn) {
             showMessage("شغّل الجهاز أولا");
             return;
@@ -812,6 +637,54 @@ public class MainActivity extends Activity {
             return;
         }
 
-        if (Build.VERSION.SDK_INT >= 23) {
+        if (Build.VERSION.SDK_INT >= 23
+                && checkSelfPermission(Manifest.permission.RECORD_AUDIO)
+                != PackageManager.PERMISSION_GRANTED) {
 
-            if (checkSelfPermission(Manifes
+            requestPermissions(
+                    new String[]{Manifest.permission.RECORD_AUDIO},
+                    MIC_PERMISSION
+            );
+            return;
+        }
+
+        startRecordingNow();
+    }
+
+    private void startRecordingNow() {
+        if (!radioOn || isRecording) {
+            return;
+        }
+
+        try {
+            pauseMusic();
+
+            if (recordingPlayer != null) {
+                recordingPlayer.release();
+                recordingPlayer = null;
+            }
+
+            recordingFile = new File(getCacheDir(), "samix_recording.m4a");
+
+            if (recordingFile.exists()) {
+                recordingFile.delete();
+            }
+
+            if (Build.VERSION.SDK_INT >= 31) {
+                recorder = new MediaRecorder(this);
+            } else {
+                recorder = new MediaRecorder();
+            }
+
+            recorder.setAudioSource(MediaRecorder.AudioSource.MIC);
+            recorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
+            recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
+            recorder.setAudioSamplingRate(44100);
+            recorder.setAudioEncodingBitRate(96000);
+            recorder.setOutputFile(recordingFile.getAbsolutePath());
+
+            recorder.prepare();
+            recorder.start();
+
+            isRecording = true;
+            play
