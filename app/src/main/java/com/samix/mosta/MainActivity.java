@@ -688,3 +688,5 @@ public class MainActivity extends Activity {
 
             isRecording = true;
             play
+{
+{
