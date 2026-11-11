@@ -3,7 +3,6 @@ package com.samix.mosta;
 import android.Manifest;
 import android.app.Activity;
 import android.content.pm.PackageManager;
-import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
@@ -660,14 +659,19 @@ public class MainActivity extends Activity {
             pauseMusic();
 
             if (recordingPlayer != null) {
-                recordingPlayer.release();
+                try {
+                    recordingPlayer.release();
+                } catch (Exception ignored) {
+                }
                 recordingPlayer = null;
             }
 
             recordingFile = new File(getCacheDir(), "samix_recording.m4a");
 
-            if (recordingFile.exists()) {
-                recordingFile.delete();
+            if (recordingFile.exists() && !recordingFile.delete()) {
+                showMessage("تعذر تجهيز ملف التسجيل");
+                startMusic();
+                return;
             }
 
             if (Build.VERSION.SDK_INT >= 31) {
@@ -681,12 +685,4 @@ public class MainActivity extends Activity {
             recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
             recorder.setAudioSamplingRate(44100);
             recorder.setAudioEncodingBitRate(96000);
-            recorder.setOutputFile(recordingFile.getAbsolutePath());
-
-            recorder.prepare();
-            recorder.start();
-
-            isRecording = true;
-            play
-{
-{
+            recorder.setOutputFile(rec
